@@ -46,11 +46,32 @@ function Uint32Matrix (width, height) {
 	this.data = new Uint32Array(width * height);
 }
 
+function Float32Matrix (width, height) {
+	if (typeof(width) == "number") {
+		this.width = width;
+		this.height = height;
+		this.data = new Float32Array(width * height);
+	} else {
+		var matrix = width;
+		this.width = matrix.width;
+		this.height = matrix.height;
+		this.data = new Float32Array(matrix.data);
+	}
+}
+
 Uint32Matrix.prototype.getCell = function(x, y) {
 	return this.data[y*this.width + x];
 }
 
 Uint32Matrix.prototype.putCell = function(x, y, value) {
+	this.data[y * this.width + x] = value;
+}
+
+Float32Matrix.prototype.getCell = function(x, y) {
+	return this.data[y*this.width + x];
+}
+
+Float32Matrix.prototype.putCell = function(x, y, value) {
 	this.data[y * this.width + x] = value;
 }
 
@@ -77,6 +98,19 @@ var Carver = {
 		}
 		
 		return result;
+	},
+	realSobel: function(bwmatrix) {
+		var horizontal = [[[1], [2], [1]], [[-1, 0, 1]]];
+		var vertical = [[[-1], [0], [1]], [[1, 2, 1]]];
+		
+		var g1 = this.util.convolvesep(bwmatrix, horizontal);
+		var g2 = this.util.convolvesep(bwmatrix, vertical);
+		
+		for (var i = 0; i < g1.data.length; i++) {
+			g1.data[i] = Math.sqrt(Math.pow(g1.data[i], 2) + Math.pow(g2.data[i], 2));
+		}
+		
+		return g1;
 	},
 	sobel: function(bwmatrix) {
 		return this.util.convolve(bwmatrix, [[0, 1, 0], [1, -4, 1], [0, 1, 0]]);
@@ -157,19 +191,29 @@ var Carver = {
 			return r * 0.21 + g * 0.72 + b * 0.07;
 		},
 		convolve: function(matrix, kernel) {
-			var total, x, y, dx, dy;
+			var total, x, y, dx, dy, width, height;
 			
-			var m = [].concat(kernel[0], kernel[1], kernel[2]);
-			var divisor = m.reduce(function(a, b) { return a+b;}) || 1;
+			height = kernel[0].length;
+			width = kernel.length;
 			
-			var copy = new Uint8Matrix(matrix);
+			var halfwidth = (width-1)/2;
+			var halfheight = (height-1)/2;
+			var divisor = 0;
 			
-			for (x = 1; x < matrix.width-1; x++) {
-				for (y = 1; y < matrix.height-1; y++) {
+			for (x = 0; x < width; x++) {
+				for (y = 0; y < height; y++) {
+					divisor += kernel[x][y];
+				}
+			}
+			
+			var copy = new Float32Matrix(matrix);
+			
+			for (x = halfwidth; x < matrix.width-halfwidth; x++) {
+				for (y = halfheight; y < matrix.height-halfheight; y++) {
 					total = 0;
-					for (dx = 0; dx < 3; dx++) {
-						for (dy = 0; dy < 3; dy++) {
-							total += kernel[dx][dy] * matrix.getCell(x + dx - 1, y + dy - 1);
+					for (dx = 0; dx < width; dx++) {
+						for (dy = 0; dy < height; dy++) {
+							total += kernel[dx][dy] * matrix.getCell(x + dx - halfwidth, y + dy - halfheight);
 						}
 					}
 					copy.putCell(x, y, total);
@@ -177,6 +221,9 @@ var Carver = {
 			}
 			
 			return copy;
+		},
+		convolvesep: function(matrix, sepkernels) {
+			return this.convolve(this.convolve(matrix, sepkernels[1]), sepkernels[0]);
 		}
 	}
 };
@@ -193,13 +240,13 @@ img.onload = function() {
 	
 	var imageData = context.getImageData(0, 0, canvas.width, canvas.height);
 	var desat = Carver.desaturate(imageData);
-	var sobel = Carver.sobel(desat);
-	var max = Carver.max(sobel);
-	var cumulimportance = Carver.cumulativeImportance(max);
+	var sobel = Carver.realSobel(desat);
+	//var max = Carver.max(sobel);
+	//var cumulimportance = Carver.cumulativeImportance(max);
 	
 	for (var x = 0; x < imageData.width; x++) {
 		for (var y = 0; y < imageData.height; y++) {
-			imageData.setPixel(x, y, max.getCell(x, y));
+			imageData.setPixel(x, y, sobel.getCell(x, y));
 		}
 	}
 	
