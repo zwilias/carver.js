@@ -40,6 +40,20 @@ function Uint8Matrix (width, height) {
 	}
 }
 
+function Uint32Matrix (width, height) {
+	this.width = width;
+	this.height = height;
+	this.data = new Uint32Array(width * height);
+}
+
+Uint32Matrix.prototype.getCell = function(x, y) {
+	return this.data[y*this.width + x];
+}
+
+Uint32Matrix.prototype.putCell = function(x, y, value) {
+	this.data[y * this.width + x] = value;
+}
+
 Uint8Matrix.prototype.getCell = function(x, y) {
 	return this.data[y*this.width + x];
 }
@@ -85,6 +99,59 @@ var Carver = {
 		
 		return copy;	
 	},
+	cumulativeImportance: function(matrix) {
+		var x, y, dir, left, right, up;
+		var cumul = new Uint32Matrix(matrix.width, matrix.height);
+		var impor = new Uint8Matrix(matrix.width, matrix.height);
+		
+		// copy first line
+		for (x = 0; x < matrix.width; x++) {
+			cumul.putCell(x, 0, matrix.getCell(x, 0));
+			impor.putCell(x, 0, 0);
+		}
+		
+		// step through this thing
+		for (y = 1; y < matrix.height; y++) {
+			for (x = 0; x < matrix.width; x++) {
+				if (x == 0) {
+					// only check up and right
+					if (cumul.getCell(x, y-1) <= cumul.getCell(x+1, y-1)) {
+						dir = 0;
+					} else {
+						dir = 1;
+					}
+				} else if (x == matrix.width-1) {
+					// only check left and up
+					if (cumul.getCell(x, y-1) <= cumul.getCell(x-1, y-1)) {
+						dir = 0;
+					} else {
+						dir = -1;
+					}
+				} else {
+					// check up, left and right. prefer up. if left and right are equal, prefer right, for now. Not sure what do yet.
+					up = cumul.getCell(x, y-1);
+					left = cumul.getCell(x-1, y-1);
+					right = cumul.getCell(x+1, y-1);
+					
+					if (up <= left && up <= right) {
+						dir = 0;
+					} else if (left < up && up <= right) {
+						dir = -1;
+					} else {
+						dir = 1;
+					}
+				}
+				
+				impor.putCell(x, y, dir);
+				cumul.putCell(x, y, matrix.getCell(x, y) + cumul.getCell(x + dir, y-1));
+			}
+		}
+		
+		return {
+			impor: impor,
+			cumul: cumul
+		};
+	},
 	util: {
 		desaturate: function (r, g, b) {
 			return r * 0.21 + g * 0.72 + b * 0.07;
@@ -128,6 +195,7 @@ img.onload = function() {
 	var desat = Carver.desaturate(imageData);
 	var sobel = Carver.sobel(desat);
 	var max = Carver.max(sobel);
+	var cumulimportance = Carver.cumulativeImportance(max);
 	
 	for (var x = 0; x < imageData.width; x++) {
 		for (var y = 0; y < imageData.height; y++) {
