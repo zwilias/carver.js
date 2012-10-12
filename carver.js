@@ -99,7 +99,7 @@ var Carver = {
 		
 		return result;
 	},
-	realSobel: function(bwmatrix) {
+	sobel: function(bwmatrix) {
 		var horizontal = [[[1], [2], [1]], [[-1, 0, 1]]];
 		var vertical = [[[-1], [0], [1]], [[1, 2, 1]]];
 		
@@ -111,27 +111,6 @@ var Carver = {
 		}
 		
 		return g1;
-	},
-	sobel: function(bwmatrix) {
-		return this.util.convolve(bwmatrix, [[0, 1, 0], [1, -4, 1], [0, 1, 0]]);
-	},
-	max: function(bwmatrix) {
-		var x, y, dx, dy, max, v;
-		var copy = new Uint8Matrix(bwmatrix);
-		for (x = 1; x < bwmatrix.width - 1; x++) {
-			for (y = 1; y < bwmatrix.height - 1; y++) {
-				max = 0;
-				for (dx = -1; dx <= 1; dx++) {
-					for (dy = -1; dy <= 1; dy++) {
-						v = bwmatrix.getCell(x+dx, y+dy);
-						max = max > v ? max : v;
-					}
-				}
-				copy.putCell(x, y, max);
-			}
-		}
-		
-		return copy;	
 	},
 	cumulativeImportance: function(matrix) {
 		var x, y, dir, left, right, up;
@@ -240,8 +219,7 @@ img.onload = function() {
 	
 	var imageData = context.getImageData(0, 0, canvas.width, canvas.height);
 	var desat = Carver.desaturate(imageData);
-	var sobel = Carver.realSobel(desat);
-	//var max = Carver.max(sobel);
+	var sobel = Carver.sobel(desat);
 	//var cumulimportance = Carver.cumulativeImportance(max);
 	
 	for (var x = 0; x < imageData.width; x++) {
