@@ -99,6 +99,12 @@ var Carver = {
 		
 		return result;
 	},
+	gaussian: function(bwmatrix) {
+		return this.util.convolvesep(bwmatrix, [[[0.006], [0.061], [0.242], [0.383], [0.242], [0.061], [0.006]], [[0.006, 0.061, 0.242, 0.383, 0.242, 0.061, 0.006]]]);
+	},
+	oldsobel: function(bwmatrix) {
+			return this.util.convolve(bwmatrix, [[0, 1, 0], [1, -4, 1], [0, 1, 0]]);
+		},
 	sobel: function(bwmatrix) {
 		var horizontal = [[[1], [2], [1]], [[-1, 0, 1]]];
 		var vertical = [[[-1], [0], [1]], [[1, 2, 1]]];
@@ -111,6 +117,24 @@ var Carver = {
 		}
 		
 		return g1;
+	},
+	max: function(bwmatrix) {
+		var x, y, dx, dy, max, v;
+		var copy = new Uint8Matrix(bwmatrix);
+		for (x = 1; x < bwmatrix.width - 1; x++) {
+			for (y = 1; y < bwmatrix.height - 1; y++) {
+				max = 0;
+				for (dx = -1; dx <= 1; dx++) {
+					for (dy = -1; dy <= 1; dy++) {
+						v = bwmatrix.getCell(x+dx, y+dy);
+						max = max > v ? max : v;
+					}
+				}
+				copy.putCell(x, y, max);
+			}
+		}
+
+		return copy;	
 	},
 	cumulativeImportance: function(matrix) {
 		var x, y, dir, left, right, up;
@@ -219,12 +243,23 @@ img.onload = function() {
 	
 	var imageData = context.getImageData(0, 0, canvas.width, canvas.height);
 	var desat = Carver.desaturate(imageData);
+	//desat = Carver.gaussian(desat);
 	var sobel = Carver.sobel(desat);
-	//var cumulimportance = Carver.cumulativeImportance(max);
+	//var sobel = Carver.max(Carver.oldsobel(desat));
+	var cumulimportance = Carver.cumulativeImportance(sobel);
+	
+	var max = 0;
+	for (var i = 0; i < cumulimportance.cumul.data.length; i++) {
+		max = Math.max(cumulimportance.cumul.data[i], max);
+	}
+	
+	for (i = 0; i < cumulimportance.cumul.data.length; i++) {
+		cumulimportance.cumul.data[i] = cumulimportance.cumul.data[i]/max * 255;
+	}
 	
 	for (var x = 0; x < imageData.width; x++) {
 		for (var y = 0; y < imageData.height; y++) {
-			imageData.setPixel(x, y, sobel.getCell(x, y));
+			imageData.setPixel(x, y, cumulimportance.cumul.getCell(x, y));
 		}
 	}
 	
