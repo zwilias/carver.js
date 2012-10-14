@@ -146,7 +146,7 @@ var Carver = {
 			cumul.putCell(x, 0, matrix.getCell(x, 0));
 			impor.putCell(x, 0, 0);
 		}
-		
+		leftisright = 0;
 		// step through this thing
 		for (y = 1; y < matrix.height; y++) {
 			for (x = 0; x < matrix.width; x++) {
@@ -172,10 +172,12 @@ var Carver = {
 					
 					if (up <= left && up <= right) {
 						dir = 0;
-					} else if (left < up && up <= right) {
+					} else if (left < up && left < right) {
 						dir = -1;
-					} else {
+					} else if (right < up && right < left) {
 						dir = 1;
+					} else {
+						console.log({left: left, up: up, right: right});
 					}
 				}
 				
@@ -188,6 +190,47 @@ var Carver = {
 			impor: impor,
 			cumul: cumul
 		};
+	},
+	nonoverlapping: function(minimalrows, directions, count) {
+		var width = directions.width;
+		var height = directions.height;
+		var found = 0;
+		var matrix = new Uint8Matrix(width, height);
+		
+		var i = 0;
+		
+		while (found < count && i < width) {
+			var x = minimalrows[i][0];
+			var overlap = false
+			
+			for (y = height-1; !overlap && y > 0; y--) {
+				overlap = matrix.getCell(x, y) == 1;
+				x += directions.getCell(x, y);
+			}
+			
+			if (!overlap) {
+				found += 1;
+				x = minimalrows[i][0];
+				for (y = height-1; y > 0; y--) {
+					matrix.putCell(x, y, 1);
+					x += directions.getCell(x, y);
+				}
+			}
+			
+			i++;
+		}
+		
+		return matrix;
+	},
+	minimalrows: function(cumul) {
+		var lastrow = [];
+		
+		for (var x = 0; x < cumul.width; x++) {
+			lastrow.push([x, cumul.getCell(x, cumul.height-1)]);
+		}
+		
+		lastrow = lastrow.sort(function(a, b) {return a[1]-b[1];});
+		return lastrow;
 	},
 	util: {
 		desaturate: function (r, g, b) {
@@ -247,6 +290,7 @@ img.onload = function() {
 	var sobel = Carver.sobel(desat);
 	//var sobel = Carver.max(Carver.oldsobel(desat));
 	var cumulimportance = Carver.cumulativeImportance(sobel);
+	var minimal = Carver.minimalrows(cumulimportance.cumul);
 	
 	var max = 0;
 	for (var i = 0; i < cumulimportance.cumul.data.length; i++) {
@@ -260,6 +304,16 @@ img.onload = function() {
 	for (var x = 0; x < imageData.width; x++) {
 		for (var y = 0; y < imageData.height; y++) {
 			imageData.setPixel(x, y, cumulimportance.cumul.getCell(x, y));
+		}
+	}
+	
+	var nonoverlap = Carver.nonoverlapping(minimal, cumulimportance.impor, 50);
+	var red = {r: 255, g: 0, b: 0, a: 255};
+	for (x = 0; x < nonoverlap.width; x++) {
+		for (y = 0; y < nonoverlap.height; y++) {
+			if (nonoverlap.getCell(x, y) == 1) {
+				imageData.setPixel(x, y, red);
+			}
 		}
 	}
 	
