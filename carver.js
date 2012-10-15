@@ -172,12 +172,13 @@ var Carver = {
 					
 					if (up <= left && up <= right) {
 						dir = 0;
-					} else if (left < up && left < right) {
+					} else if (left <= up && left < right) {
 						dir = -1;
-					} else if (right < up && right < left) {
+					} else if (right <= up && right < left) {
 						dir = 1;
 					} else {
-						console.log({left: left, up: up, right: right});
+						//console.log({left: left, up: up, right: right});
+						dir = 0;
 					}
 				}
 				
@@ -307,13 +308,24 @@ img.onload = function() {
 		}
 	}
 	
-	var nonoverlap = Carver.nonoverlapping(minimal, cumulimportance.impor, 50);
 	var red = {r: 255, g: 0, b: 0, a: 255};
+	/*
+	var nonoverlap = Carver.nonoverlapping(minimal, cumulimportance.impor, 50);
 	for (x = 0; x < nonoverlap.width; x++) {
 		for (y = 0; y < nonoverlap.height; y++) {
 			if (nonoverlap.getCell(x, y) == 1) {
 				imageData.setPixel(x, y, red);
 			}
+		}
+	}
+	*/
+	
+	for (var count = 0; count < 100; count++) {
+		var row = minimal[count];
+		var x = row[0];
+		for (var y = imageData.height-1; y > 0; y--) {
+			imageData.setPixel(x, y, red);
+			x += cumulimportance.impor.getCell(x, y);
 		}
 	}
 	
